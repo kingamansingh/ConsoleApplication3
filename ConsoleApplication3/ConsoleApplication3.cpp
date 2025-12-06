@@ -35,12 +35,11 @@ void enableANSI() {
     SetConsoleOutputCP(CP_UTF8);
 }
 
-// Clear screen
 static void clearScreen() {
     std::system("cls || clear");//cout << "\033[2J\033[H" << flush;
 }
 
-// Set cursor position (x=column, y=row)
+// Set cursor position (x=column, y=row) 
 static void setCursor(int x, int y) {
     cout << "\033[" << x << ";" << y << "H" << flush;
 }
@@ -55,7 +54,8 @@ static void clearArea(int len, int hit) {
 }
 
 static void message(const string& text) {
-    setCursor(45, (211 - text.length())/2);
+    setCursor(12, (int)(211 - text.length())/2);
+    cout << "\033[2K";
     cout << text << flush;
 }
 
@@ -293,7 +293,6 @@ private:
         std::system("cls || clear");
         resetmogamboKnowledge();
         displayTable();
-		//waitForKey();
     }
 
     void displayTable() {
@@ -302,7 +301,7 @@ private:
 
         setCursor(1, (211 - (maxHP * 14)));// mogambo HP
         for (int i = 0; i < maxHP; i++) (i < (maxHP - mogamboHP)) ? gun.out() : h1.out();
-        you.out(0, 15, 4, 10, 40), mog.out(0, 40, 4, 10, 150);
+        you.out(0, 15, 4, 8, 40), mog.out(0, 40, 4, 8, 150);
     }
 
     void displayItems() { 
@@ -316,7 +315,7 @@ private:
         start.out(0, 0, 0, 1, 1);
         displayTable();
         displayItems();
-        gun1.out(0, 45, 8, 30, 60);
+        gun1.out(0, 45, 8, 28, 60);
         char choice = waitForKey();
         if (choice >= '1' && choice <= '6') {
             int itemIndex = choice - '1';
@@ -337,35 +336,29 @@ private:
         }
     }
 
-    // Improved mogambo decision making
     void mogamboActionSmart() {
         start.out(0, 0, 0, 1, 1);
         displayTable();
         displayItems();
-        cout << "mogambo's turn..." << endl;
+		message("Mogambo is thinking...");
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-
-        // Use items strategically
+		message("");
         if (mogamboUseItemsSmart()) {
             mogamboActionSmart(); // Continue turn after using item
             return;
         }
 
-        // Decide whether to shoot self or opponent based on knowledge
         if (mogamboKnowledge.knowsCurrentShell) {
             if (mogamboKnowledge.currentShellIsLive) {
-                // We know it's live, shoot opponent
                 shootOpponent(false);
                 mogamboKnowledge.knowsCurrentShell = false; // Reset after shot
             }
             else {
-                // We know it's blank, shoot self to keep turn
                 shootSelf(false);
                 mogamboKnowledge.knowsCurrentShell = false; // Reset after shot
             }
         }
         else {
-            // Don't know current shell, make probabilistic decision
             int liveCount = 0;
             int totalRemaining = 0;
 
@@ -374,8 +367,6 @@ private:
                 totalRemaining++;
             }
 
-            // If more blanks than live shells remaining, shoot self
-            // Otherwise shoot opponent (safer play)
             if (totalRemaining > 0 && liveCount < totalRemaining / 2) {
                 shootSelf(false);
             }
@@ -417,7 +408,6 @@ private:
         }
     }
 
-    // mogambo AI decision making
     struct mogamboKnowledge {
         bool knowsCurrentShell = false;
         bool currentShellIsLive = false;
@@ -519,53 +509,41 @@ private:
 
     void useItem(const Item& item, bool isPlayer) {
         std::string user = isPlayer ? "You" : "mogambo";
-        cout << user << " used " << item.name << endl;
+        //cout << user << " used " << item.name << endl;
 
         switch (item.type) {
         case MAGNIFYING_GLASS:
             if (currentShell < shells.size()) {
-                std::string shellType = shells[currentShell] ? "LIVE" : "BLANK";
                 if (isPlayer) {
-                    cout << "Current shell: " << shellType << endl;
+					shells[currentShell] ? message("Current shell is LIVE") : message("Current shell is BLANK");
                 }
-                else {
-                    cout << "mogambo examines the shell..." << endl;
-                }
-            }
-            else {
-                cout << "No shells left to examine!" << endl;
             }
             break;
 
         case CIGARETTE:
             if (isPlayer && playerHP < maxHP) {
                 playerHP++;
-                cout << "Healed 1 HP" << endl; 
             }
             else if (!isPlayer && mogamboHP < maxHP) {
                 mogamboHP++;
-                cout << "mogambo healed 1 HP" << endl;
             }
             break;
 
         case HANDCUFFS:
             if (isPlayer) {
                 mogamboSkipTurn = true;
-                //cout << "mogambo's turn will be skipped!" << endl;
+				message("mogambo's next turn will be skipped!");
             }
             else {
-                // mogambo can't really handcuff player in current implementation
-                // but you could add playerSkipTurn if you want
-                cout << "mogambo used handcuffs!" << endl;
+				playerTurn = false;
             }
             break;
 
         case BEER:
             if (currentShell < shells.size()) {
-                bool wasLive = shells[currentShell];
+				shells[currentShell] ? message("Ejected a LIVE shell!") : message("Ejected a BLANK shell!");
                 currentShell++;
-                std::string ejected = wasLive ? "LIVE" : "BLANK";
-                cout << "Ejected " << ejected << " shell" << endl;
+                
             }
             else {
                 cout << "No shells to eject!" << endl;
@@ -574,13 +552,13 @@ private:
 
         case SAW:
             sawActive = true;
-            cout << "Next shot will deal DOUBLE DAMAGE!" << endl;
+			message("Next shot will deal double damage!");
             break;
 
         case SWITCH:
             if (currentShell < shells.size()) {
                 shells[currentShell] = !shells[currentShell];
-                cout << "Inverted the current shell!" << endl;
+				message(user + " switched the shell polarity!");
             }
             else {
                 cout << "No shell to switch!" << endl;
@@ -594,7 +572,7 @@ private:
     }
 
     void shootSelf(bool isPlayer) {
-        isPlayer ? gun_1.out(0, 45, 8, 25, 60) : gun_2.out(0, 45, 8, 25, 108);
+        isPlayer ? gun_1.out(0, 45, 8, 23, 60) : gun_2.out(0, 45, 8, 23, 108);
         setCursor(1, 1);
         if (currentShell >= shells.size()) {
             return;
@@ -607,8 +585,8 @@ private:
 
         if (isLive) {
             playSound("shotgun.wav", true);
-            isPlayer ? p1self.out(100, 42, 20, 21, 18) : p2self.out(100, 42, 20, 21, 153);
-            isPlayer ? p1.out(0, 41, 20, 21, 18) : p2.out(0, 41, 20, 21, 153);
+            isPlayer ? p1self.out(100, 42, 20, 19, 18) : p2self.out(100, 42, 20, 19, 153);
+            isPlayer ? p1.out(0, 41, 20, 19, 18) : p2.out(0, 41, 20, 19, 153);
             isPlayer ? gun_1.clearthis() : gun_2.clearthis();
 
             int damage = sawActive ? 2 : 1;
@@ -636,7 +614,7 @@ private:
     }
 
     void shootOpponent(bool isPlayer) {
-        isPlayer ? gun1.out(0, 45, 8, 30, 60) : gun2.out(0, 45, 8, 30, 108);
+        isPlayer ? gun1.out(0, 45, 8, 28, 60) : gun2.out(0, 45, 8, 28, 108);
         setCursor(1, 1);
         
         if (currentShell >= shells.size()) return;
@@ -650,7 +628,7 @@ private:
 
         if (isLive) {
             playSound("shotgun.wav", true);
-            isPlayer ? shootp2.out(5, 93, 28, 14, 118) : shootp1.out(5, 93, 28, 14, 1);
+            isPlayer ? shootp2.out(5, 93, 28, 12, 118) : shootp1.out(5, 93, 28, 12, 1);
 			isPlayer ? shootp2.clearthis() : shootp1.clearthis();
             int damage = sawActive ? 2 : 1;
             if (isPlayer) {
@@ -671,7 +649,7 @@ private:
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         playerTurn = !playerTurn;
-        isPlayer ? p2.out(0, 41, 20, 21, 153) : p1.out(0, 41, 20, 21, 18);
+        isPlayer ? p2.out(0, 41, 20, 19, 153) : p1.out(0, 41, 20, 19, 18);
         gun2.clearthis();
         gun1.clearthis();
 
@@ -711,10 +689,7 @@ public:
                 }
                 else {
                     if (mogamboSkipTurn) {
-                        clearScreen();
-                        
-						cout << "mogambo is handcuffed! Turn skipped." << endl;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
                         mogamboSkipTurn = false;
                         playerTurn = true;
                     }
@@ -749,6 +724,7 @@ public:
         if (playerWon) cout << "YOU WIN!\nMOGAMBO FUSS HUA !" << endl;
         else cout << "YOU DIED\nMOGAMBO KHUSH HUA !" << endl;
 		cout << "Press any key to exit..." << endl;
+		waitForKey();
     }
 };
 //AniMan trial({ "mogambo.utf8ans" }), flash({"flash.utf8ans"});
@@ -1478,7 +1454,7 @@ int main() {
     cout << "\033]0;ANSI ROULETTE\007";
     setConsoleSize(211, 49);
     lockConsoleResize();
-
+    removeScrollbars();
     while (true) {
         std::system("cls || clear");
         cout << "=== BUCKSHOT ROULETTE ===\n\n";
