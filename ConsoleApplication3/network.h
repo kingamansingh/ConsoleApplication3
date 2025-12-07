@@ -73,3 +73,12 @@ public:
 };
 
 #endif
+
+/*for testing online write this command in cmd/terminal for localhost exposing -
+
+ssh -p 443 -R0:127.0.0.1:8000 tcp@free.pinggy.io
+						   /\
+							\__________this your local port. It should be same as server port
+
+and use the given address and port to connect to the server
+*/
